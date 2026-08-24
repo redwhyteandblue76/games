@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12one</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --card: #161616;
+    --card-border: rgba(95, 179, 217, 0.22);
+    --accent: #5fb3d9;
+    --text: #e8e8e8;
+    --muted: #8a8a8a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1, .oswald {
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .card {
+    background-color: var(--card);
+    padding: 28px 26px;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    position: relative;
+  }
+  .tab {
+    position: absolute;
+    top: -11px;
+    left: 24px;
+    background: var(--bg);
+    padding: 2px 10px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  h1 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 4px 0 14px;
+    color: var(--text);
+  }
+  h1 span { color: var(--accent); }
+  p {
+    margin: 0 0 22px;
+    line-height: 1.6;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  a.home-link {
+    display: inline-block;
+    padding: 11px 20px;
+    border: none;
+    border-radius: 3px;
+    background-color: var(--accent);
+    color: #08181e;
+    text-decoration: none;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: background-color 0.15s;
+  }
+  a.home-link:hover { background-color: #7fc4e6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <span class="tab">Status</span>
+    <h1>Welcome to the 12<span>one</span> web app</h1>
+    <p>Not much to see here. Check your URL to make sure you have the right extension, or return to home.</p>
+    <a class="home-link" href="https://www.12one.page">Return to 12one.page</a>
+  </div>
+</body>
+</html>
