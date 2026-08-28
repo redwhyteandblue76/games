@@ -206,6 +206,7 @@ async function renderSignup() {
 
   let hallEnabled = false;
   let hallOptions = [];
+  let phoneEnabled = true;
   try {
     const status = await callBackend('getPublicStatus');
     if (status.masterLock === 'TRUE') {
@@ -214,8 +215,9 @@ async function renderSignup() {
     }
     hallEnabled = status.hallFieldEnabled === 'TRUE';
     hallOptions = (status.hallOptions || '').split(',').map(h => h.trim()).filter(Boolean);
+    phoneEnabled = status.phoneFieldEnabled !== 'FALSE'; // defaults to enabled
   } catch (err) {
-    // If the status check fails, fall through and just show signup without hall info.
+    // If the status check fails, fall through and just show signup without hall/phone info.
   }
 
   const hallFieldHtml = hallEnabled ? `
@@ -226,6 +228,11 @@ async function renderSignup() {
       </select>
   ` : '';
 
+  const phoneFieldHtml = phoneEnabled ? `
+      <label>Phone:</label>
+      <input type="text" id="phone" required>
+  ` : '';
+
   app.innerHTML = `
     <h2>Assassins Sign-Up</h2>
     <div class="form-section">
@@ -233,8 +240,7 @@ async function renderSignup() {
       <input type="text" id="codename" autocapitalize="off" autocomplete="off" required>
       <label>First and Last Name:</label>
       <input type="text" id="real_name" required>
-      <label>Phone:</label>
-      <input type="text" id="phone" required>
+      ${phoneFieldHtml}
       ${hallFieldHtml}
       <button id="submitBtn">Submit</button>
       <div class="loading" id="loading"><div class="spinner"></div>Submitting...</div>
@@ -250,11 +256,12 @@ async function renderSignup() {
 
     const codename = normalizeCodenameInput(document.getElementById('codename').value);
     const real_name = document.getElementById('real_name').value.trim();
-    const phone = document.getElementById('phone').value.trim();
+    const phoneField = document.getElementById('phone');
+    const phone = phoneField ? phoneField.value.trim() : '';
     const hallField = document.getElementById('hall');
     const hall = hallField ? hallField.value : '';
 
-    if (!codename || !real_name || !phone || (hallEnabled && !hall)) {
+    if (!codename || !real_name || (phoneEnabled && !phone) || (hallEnabled && !hall)) {
       showOutput(output, 'Please fill in all fields.', 'error');
       return;
     }
@@ -266,7 +273,8 @@ async function renderSignup() {
     btn.disabled = true;
     setLoading(loading, true);
     try {
-      const submitParams = { codename, real_name, phone };
+      const submitParams = { codename, real_name };
+      if (phoneEnabled) submitParams.phone = phone;
       if (hallEnabled) submitParams.hall = hall;
       const data = await callBackend('submitForm', submitParams);
       setLoading(loading, false);
@@ -275,7 +283,7 @@ async function renderSignup() {
         showOutput(output, `Welcome, ${real_name}! Your codename is "${codename}". Screenshot this for your records.`, 'success');
         document.getElementById('codename').value = '';
         document.getElementById('real_name').value = '';
-        document.getElementById('phone').value = '';
+        if (phoneField) phoneField.value = '';
         if (hallField) hallField.selectedIndex = 0;
       } else {
         showOutput(output, data.message, 'error');
@@ -499,7 +507,10 @@ function renderAdmin() {
       </div>
       <div class="form-section">
         <h3 style="margin-top:0;">Recent Log</h3>
-        <div id="logList">Loading...</div>
+        <button id="revealLogBtn">👁️ Reveal Log</button>
+        <div id="logHidden" style="display:none; margin-top:12px;">
+          <div id="logList">Loading...</div>
+        </div>
       </div>
       <div class="form-section" style="border-color:#ff5555; margin-top:40px;">
         <h3 style="margin-top:0; color:#ff8888;">⚠️ Danger Zone</h3>
@@ -516,13 +527,14 @@ function renderAdmin() {
       signup_enabled: ['TRUE', 'FALSE'],
       dashboard_enabled: ['TRUE', 'FALSE'],
       eliminate_enabled: ['TRUE', 'FALSE'],
-      hall_field_enabled: ['TRUE', 'FALSE']
+      hall_field_enabled: ['TRUE', 'FALSE'],
+      phone_field_enabled: ['TRUE', 'FALSE']
     };
 
     const settingsData = await callBackend('adminGetSettings', { password });
     const settingsList = document.getElementById('settingsList');
     const editableKeys = ['game_status','signup_enabled','dashboard_enabled','eliminate_enabled',
-      'hall_field_enabled','hall_options',
+      'hall_field_enabled','hall_options','phone_field_enabled',
       'signup_off_message','dashboard_off_message','eliminate_off_message','master_lock_message'];
 
     settingsList.innerHTML = editableKeys.map(key => {
@@ -563,6 +575,11 @@ function renderAdmin() {
         btn.textContent = 'Saved!';
         setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1200);
       });
+    });
+
+    document.getElementById('revealLogBtn').addEventListener('click', () => {
+      document.getElementById('logHidden').style.display = 'block';
+      document.getElementById('revealLogBtn').style.display = 'none';
     });
 
     document.getElementById('eliminateNoFirstKillBtn').addEventListener('click', async () => {
