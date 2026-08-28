@@ -491,6 +491,8 @@ function renderAdmin() {
         <button id="shuffleHallsBtn" style="background-color:#2a4d3a;">🎲 Shuffle Order (Alternate Halls)</button>
         <div class="output" id="shuffleOutput"></div>
         <button id="revealPlayersBtn" style="margin-top:10px;">🙈 Reveal Player List</button>
+        <button id="eliminateNoFirstKillBtn" style="background-color:#663333; margin-top:10px;">⚡ Eliminate All Without a First Kill</button>
+        <div class="output" id="eliminateNoFirstKillOutput"></div>
         <div id="playersHidden" style="display:none; margin-top:12px;">
           <div id="playersList">Loading...</div>
         </div>
@@ -561,6 +563,18 @@ function renderAdmin() {
         btn.textContent = 'Saved!';
         setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1200);
       });
+    });
+
+    document.getElementById('eliminateNoFirstKillBtn').addEventListener('click', async () => {
+      const out = document.getElementById('eliminateNoFirstKillOutput');
+      if (!confirm('This eliminates every currently active player who has not yet successfully eliminated anyone. This cannot be undone (though you can manually mark someone active again below). Continue?')) return;
+      const btn = document.getElementById('eliminateNoFirstKillBtn');
+      btn.disabled = true;
+      showOutput(out, 'Working...', '');
+      const data = await callBackend('adminEliminateNoFirstKill', { password });
+      btn.disabled = false;
+      showOutput(out, data.message, data.success ? 'success' : 'error');
+      if (data.success) loadAdminContent();
     });
 
     document.getElementById('revealPlayersBtn').addEventListener('click', () => {
