@@ -129,6 +129,10 @@ function normalizeCodenameInput(value) {
   return value.trim().toLowerCase();
 }
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+  
 function showOutput(el, message, type) {
   el.textContent = message;
   el.className = 'output ' + (type || '');
@@ -207,6 +211,9 @@ async function renderSignup() {
   let hallEnabled = false;
   let hallOptions = [];
   let phoneEnabled = true;
+  let instructionsEnabled = false;
+  let instructionVerificationEnabled = false;
+  let instructionsText = '';
   try {
     const status = await callBackend('getPublicStatus');
     if (status.masterLock === 'TRUE') {
@@ -215,9 +222,12 @@ async function renderSignup() {
     }
     hallEnabled = status.hallFieldEnabled === 'TRUE';
     hallOptions = (status.hallOptions || '').split(',').map(h => h.trim()).filter(Boolean);
-    phoneEnabled = status.phoneFieldEnabled !== 'FALSE'; // defaults to enabled
+    phoneEnabled = status.phoneFieldEnabled !== 'FALSE';
+    instructionsEnabled = status.instructionsEnabled === 'TRUE';
+    instructionVerificationEnabled = status.instructionVerificationEnabled === 'TRUE';
+    instructionsText = status.instructionsText || '';
   } catch (err) {
-    // If the status check fails, fall through and just show signup without hall/phone info.
+    // If the status check fails, fall through and just show signup without hall/phone/instructions info.
   }
 
   const hallFieldHtml = hallEnabled ? `
@@ -233,8 +243,23 @@ async function renderSignup() {
       <input type="text" id="phone" required>
   ` : '';
 
+  const instructionsBlockHtml = instructionsEnabled ? `
+    <div class="form-section" style="border-color:#ffcc55;">
+      <h2 style="margin-top:0;">Instructions</h2>
+      <div style="white-space:pre-wrap; font-size:14px; line-height:1.5;">${escapeHtml(instructionsText)}</div>
+    </div>
+  ` : '';
+
+  const checkboxHtml = (instructionsEnabled && instructionVerificationEnabled) ? `
+      <label style="display:flex; align-items:flex-start; gap:8px; font-weight:normal;">
+        <input type="checkbox" id="instructionsAccepted" style="width:auto; margin:4px 0 0;">
+        <span>I have read and understand the instructions above.</span>
+      </label>
+  ` : '';
+
   app.innerHTML = `
     <h2>Assassins Sign-Up</h2>
+    ${instructionsBlockHtml}
     <div class="form-section">
       <label>Codename (letters and numbers only, no spaces):</label>
       <input type="text" id="codename" autocapitalize="off" autocomplete="off" required>
@@ -242,6 +267,7 @@ async function renderSignup() {
       <input type="text" id="real_name" required>
       ${phoneFieldHtml}
       ${hallFieldHtml}
+      ${checkboxHtml}
       <button id="submitBtn">Submit</button>
       <div class="loading" id="loading"><div class="spinner"></div>Submitting...</div>
       <div class="output" id="output"></div>
@@ -260,6 +286,8 @@ async function renderSignup() {
     const phone = phoneField ? phoneField.value.trim() : '';
     const hallField = document.getElementById('hall');
     const hall = hallField ? hallField.value : '';
+    const instructionsCheckbox = document.getElementById('instructionsAccepted');
+    const instructionsAccepted = instructionsCheckbox ? instructionsCheckbox.checked : true;
 
     if (!codename || !real_name || (phoneEnabled && !phone) || (hallEnabled && !hall)) {
       showOutput(output, 'Please fill in all fields.', 'error');
@@ -269,6 +297,10 @@ async function renderSignup() {
       showOutput(output, 'Codename must contain only letters and numbers, no spaces.', 'error');
       return;
     }
+    if (instructionVerificationEnabled && !instructionsAccepted) {
+      showOutput(output, 'Please confirm you have read and understand the instructions.', 'error');
+      return;
+    }
 
     btn.disabled = true;
     setLoading(loading, true);
@@ -276,6 +308,7 @@ async function renderSignup() {
       const submitParams = { codename, real_name };
       if (phoneEnabled) submitParams.phone = phone;
       if (hallEnabled) submitParams.hall = hall;
+      if (instructionVerificationEnabled) submitParams.instructionsAccepted = String(instructionsAccepted);
       const data = await callBackend('submitForm', submitParams);
       setLoading(loading, false);
       btn.disabled = false;
@@ -285,6 +318,7 @@ async function renderSignup() {
         document.getElementById('real_name').value = '';
         if (phoneField) phoneField.value = '';
         if (hallField) hallField.selectedIndex = 0;
+        if (instructionsCheckbox) instructionsCheckbox.checked = false;
       } else {
         showOutput(output, data.message, 'error');
       }
@@ -528,15 +562,20 @@ function renderAdmin() {
       dashboard_enabled: ['TRUE', 'FALSE'],
       eliminate_enabled: ['TRUE', 'FALSE'],
       hall_field_enabled: ['TRUE', 'FALSE'],
-      phone_field_enabled: ['TRUE', 'FALSE']
+      phone_field_enabled: ['TRUE', 'FALSE'],
+      instructions_enabled: ['TRUE', 'FALSE'],
+      instruction_verification_enabled: ['TRUE', 'FALSE']
     };
-
+    
+    const TEXTAREA_KEYS = ['signup_off_message','dashboard_off_message','eliminate_off_message','master_lock_message','instructions_text'];
+    
     const settingsData = await callBackend('adminGetSettings', { password });
     const settingsList = document.getElementById('settingsList');
     const editableKeys = ['game_status','signup_enabled','dashboard_enabled','eliminate_enabled',
       'hall_field_enabled','hall_options','phone_field_enabled',
+      'instructions_enabled','instruction_verification_enabled','instructions_text',
       'signup_off_message','dashboard_off_message','eliminate_off_message','master_lock_message'];
-
+    
     settingsList.innerHTML = editableKeys.map(key => {
       const currentValue = settingsData.settings[key] || '';
       if (SELECT_SETTINGS[key]) {
@@ -548,15 +587,21 @@ function renderAdmin() {
           return `<button type="button" style="width:auto; padding:8px 12px; ${style}" data-select-key="${key}" data-select-value="${opt}">${opt}</button>`;
         }).join('');
         return `<label>${key}</label><div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">${buttons}</div>`;
+      } else if (TEXTAREA_KEYS.includes(key)) {
+        const helpText = key === 'instructions_text' ? '<p style="font-size:11px; opacity:0.7; margin:0 0 8px;">Shown on the sign-up page when Instructions is enabled.</p>' : '';
+        return `<label>${key}</label>${helpText}<div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+          <textarea id="setting_${key}" rows="5" style="width:100%; padding:8px; font-family:'Courier New',monospace; background-color:#444; color:#fff; border:2px solid #fff; border-radius:4px; box-sizing:border-box;">${currentValue.replace(/</g,'&lt;')}</textarea>
+          <button style="width:auto; padding:10px 14px; align-self:flex-start;" data-key="${key}">Save</button>
+        </div>`;
       } else {
         const helpText = key === 'hall_options' ? '<p style="font-size:11px; opacity:0.7; margin:0 0 8px;">Comma-separated list, e.g. 25-3,27-3</p>' : '';
-        return `<label>${key}</label>${helpText}<div style="display:flex; gap:6px;">
+        return `<label>${key}</label>${helpText}<div style="display:flex; gap:6px; margin-bottom:14px;">
           <input type="text" value="${currentValue.replace(/"/g,'&quot;')}" id="setting_${key}" style="flex:1;">
           <button style="width:auto; padding:10px 14px;" data-key="${key}">Save</button>
         </div>`;
       }
     }).join('') + `<p style="font-size:12px; opacity:0.7; text-align:center; margin-top:8px;">master_lock is currently: <b>${settingsData.settings.master_lock}</b> (edit the Sheet directly to change)</p>`;
-
+    
     settingsList.querySelectorAll('button[data-select-key]').forEach(btn => {
       btn.addEventListener('click', async () => {
         btn.disabled = true;
